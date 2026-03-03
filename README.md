@@ -7,7 +7,7 @@ This project provides an admin panel for managing maps and players in Krunker. I
 ## Screenshots
 
 ![Panel screenshot](media/panel.png)
-![Freeze screenshot](media/freeze.png.png)
+![Freeze screenshot](media/freeze.png)
 ![Go To screenshot](media/goto.png)
 
 ---
