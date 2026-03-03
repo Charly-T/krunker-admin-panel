@@ -1,0 +1,180 @@
+# Server Script runs only on Hosted server & not in test mode
+# KrunkScript Copyright (C) FRVR Limited
+# 
+# Add custom actions here
+
+# REQUIRED:
+# to switch_team to work, two triggers must be in this locations
+# with onEntryObject event and swap player team action
+# and customAction with recoverPosition as custom param
+# Thanks to MossClock for the help with this
+obj changeTeamLocations = {
+	team1: {x: -17, y: 52, z: 234},
+	team2: {x: 6, y: 52, z: 234}
+};
+str[] adminPlayers = str['Charly-T'];
+obj[] savedPositions = obj[];
+
+bool action contains(str[] arr, str item) {
+	for (num i = 0; i < lengthOf arr; i++) {
+		if (arr[i] == item) {
+			return true;
+		}
+	}
+	return false;
+}
+
+action log(str text, str playerID) {
+	GAME.NETWORK.send('serverLog', { text: text }, playerID);
+}
+
+bool action isAdmin(str playerID) {
+	obj player = GAME.PLAYERS.findByID(playerID);
+	if (contains(adminPlayers, (str)player.username)) {
+		return true;
+	}
+	return false;
+}
+
+action handleAdminNetworkMessage(str id, obj data, str playerID) {
+	if (isAdmin(playerID)) {
+		if (id == 'admin-openRequest') {
+			GAME.NETWORK.send('admin-open', {}, playerID);
+		} else if (id == 'admin-kill') {
+			obj targetPlayer = GAME.PLAYERS.findByID((str)data.target);
+			(num)targetPlayer.health = 0;
+		} else if (id == 'admin-freeze') {
+			obj targetPlayer = GAME.PLAYERS.findByID((str)data.target);
+			targetPlayer.defaultMovement = !targetPlayer.defaultMovement;
+		} else if (id == 'admin-tp_to') {
+			obj targetPlayer = GAME.PLAYERS.findByID(playerID);
+			obj toPlayer = GAME.PLAYERS.findByID((str)data.target);
+			targetPlayer.position.x = toPlayer.position.x;
+			targetPlayer.position.y = toPlayer.position.y;
+			targetPlayer.position.z = toPlayer.position.z;
+		} else if (id == 'admin-summon') {
+			obj targetPlayer = GAME.PLAYERS.findByID((str)data.target);
+			obj toPlayer = GAME.PLAYERS.findByID(playerID);
+			targetPlayer.position.x = toPlayer.position.x;
+			targetPlayer.position.y = toPlayer.position.y;
+			targetPlayer.position.z = toPlayer.position.z;
+		} else if (id == 'admin-go_to') {
+			obj targetPlayer = GAME.PLAYERS.findByID(playerID);
+			targetPlayer.position.x = data.target.x;
+			targetPlayer.position.y = data.target.y;
+			targetPlayer.position.z = data.target.z;
+		} else if (id == 'admin-switch_team') {
+			obj targetPlayer = GAME.PLAYERS.findByID((str)data.target);
+			addTo savedPositions {
+				playerID: data.target,
+				x: targetPlayer.position.x,
+				y: targetPlayer.position.y,
+				z: targetPlayer.position.z,
+			};
+			if ((num)targetPlayer.team == 1) {
+				targetPlayer.position.x = changeTeamLocations.team2.x;
+				targetPlayer.position.y = changeTeamLocations.team2.y;
+				targetPlayer.position.z = changeTeamLocations.team2.z;
+			}
+			if ((num)targetPlayer.team == 2) {
+				targetPlayer.position.x = changeTeamLocations.team1.x;
+				targetPlayer.position.y = changeTeamLocations.team1.y;
+				targetPlayer.position.z = changeTeamLocations.team1.z;
+			}
+		} else if (id == 'admin-kick') {
+			GAME.ADMIN.kick((str)data.target);
+		} else if (id == 'admin-ban') {
+			GAME.ADMIN.ban((str)data.target);
+		}
+	}
+}
+
+action handleAdminCustomTrigger(str playerID, str customParam, num value) {
+	if (customParam == 'recoverPosition') {
+		for (num i = 0; i < lengthOf savedPositions; i++) {
+			if ((str)savedPositions[i].playerID == playerID) {
+				obj player = GAME.PLAYERS.findByID(playerID);
+				player.position.x = savedPositions[i].x;
+				player.position.y = savedPositions[i].y;
+				player.position.z = savedPositions[i].z;
+				remove savedPositions[i];
+				break;
+			}
+		}
+	}
+}
+
+# Runs when the game starts
+public action start() {
+
+}
+
+# Runs every game tick
+public action update(num delta) {
+
+}
+
+# Player spawns in
+public action onPlayerSpawn(str id) {
+
+}
+
+# Player died
+public action onPlayerDeath(str id, str killerID) {
+
+}
+
+# Player got damaged
+public action onPlayerDamage(str id, str doerID, num amount) {
+
+}
+
+# Player update
+public action onPlayerUpdate(str id, num delta, obj inputs) {
+
+}
+
+# Called from Custom Trigger Action
+public action onCustomTrigger(str playerID, str customParam, num value) {
+	handleAdminCustomTrigger(playerID, customParam, value);
+}
+
+# Should trigger a trigger? Return true or false
+public bool action shouldTrigger(str playerID, str triggerID, str customParam) {
+    return true;
+}
+
+# Server receives network message
+public action onNetworkMessage(str id, obj data, str playerID) {
+	handleAdminNetworkMessage(id, data, playerID);
+}
+
+# Server receives chat message
+public action onChatMessage(str msg, str playerID) {
+
+}
+
+# When a player leaves the server
+public action onPlayerLeave(str playerID) {
+
+}
+
+# Runs when the round ends
+public action onGameEnd() {
+
+}
+
+# When a player finished a video
+public action onAdFinished(str playerID, bool success) {
+
+}
+
+# Runs when the server closes
+public action onServerClosed() {
+
+}
+
+# When a deposit box is changed
+public action onDepositBoxChange(str objectID, str playerID, num amount, num finalAmount) {
+
+}

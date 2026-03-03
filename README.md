@@ -53,6 +53,8 @@ This project provides an admin panel for managing maps and players in Krunker. I
    You can also customize the keybindings with the 'ADMIN_OPEN', 'ADMIN_UP', 'ADMIN_DOWN', 'ADMIN_SELECT', 'ADMIN_BACK', and 'ADMIN_CLOSE' keys, and available admin options in the `admin.options` array.
 3. Test the map by running the game and using the admin panel to navigate and manage players.
 
+A working map.json is on the repository, so you can test the functionalityes and check the change-team zones.
+
 ### As a Map Admin
 1. Start the game and press `0` to open the admin panel.
 2. Use the navigation keys (`J`, `K`, `L`, `H`, `C`) to manage players and interact with the map.

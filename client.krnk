@@ -1,0 +1,231 @@
+# Client Script runs only on the client
+# KrunkScript Copyright (C) FRVR Limited
+# 
+# Add custom actions here
+str ADMIN_OPEN_KEY = '0';
+str ADMIN_DOWN_KEY = 'j';
+str ADMIN_UP_KEY = 'k';
+str ADMIN_ENTER_KEY = 'l';
+str ADMIN_BACK_KEY = 'h';
+str ADMIN_CLOSE_KEY = 'c';
+num NUM_VISIBLE_ITEMS = 8;
+obj[] ADMIN_POI = obj[{
+	name: 'Corner 1',
+	position: { x: 100, y: 0, z: 100 }
+}];
+
+obj admin = {
+	isOpen: true,
+	currentOption: 0,
+	selectedOption: false,
+	scrollOffset: 0,
+	options: str[
+		'kill',
+		'freeze',
+		'tp_to',
+		'summon',
+		'go_to',
+		'switch_team',
+		'kick',
+		'ban'
+	],
+};
+
+num action getMenuLength() {
+	if (!admin.selectedOption) {
+		return lengthOf admin.options;
+	} else if ((str)admin.selectedOption == 'go_to') {
+		return lengthOf ADMIN_POI;
+	}
+	return lengthOf GAME.PLAYERS.list();
+}
+
+action openAdmin() {
+	admin.isOpen = true;
+}
+
+action renderAdmin() {
+	if ((bool)admin.isOpen) {
+		GAME.OVERLAY.drawRect(15, 155, 250, 300, 0, "#000", 0.6);
+		GAME.OVERLAY.drawText(
+			UTILS.toUpper(ADMIN_UP_KEY) + ' - down / ' +
+			UTILS.toUpper(ADMIN_UP_KEY) + ' - up / ' +
+			UTILS.toUpper(ADMIN_ENTER_KEY) + ' - enter / ' +
+			UTILS.toUpper(ADMIN_BACK_KEY) + ' - back',
+			140, 445, 0, 8, "center", "#f0f000", 1);
+		if (!admin.selectedOption) {
+			num menuEnd = Math.min(lengthOf admin.options, (num)admin.scrollOffset + NUM_VISIBLE_ITEMS);
+			for (num i = (num)admin.scrollOffset; i < menuEnd; i++) {
+				num di = i - (num)admin.scrollOffset;
+				if (i == (num)admin.currentOption) {
+					GAME.OVERLAY.drawRect(20, 160 + (30 * di), 240, 30, 0, "#999", 1);
+				}
+				GAME.OVERLAY.drawText(UTILS.replaceText(admin.options[i], '_', ' '), 25, 177.5 + (30 * di), 0, 12, "left", "#fff", 1);
+			}
+		}
+		if ((bool)admin.selectedOption) {
+			str[] submenuItems = str[];
+			if ((str)admin.selectedOption == 'go_to') {
+				for (num i = 0; i < lengthOf ADMIN_POI; i++) {
+					addTo submenuItems (str)ADMIN_POI[i].name;
+				}
+			} else {
+				obj[] players = GAME.PLAYERS.list();
+				for (num i = 0; i < lengthOf players; i++) {
+					addTo submenuItems (str)players[i].username;
+				}
+			}
+			GAME.OVERLAY.drawText(admin.selectedOption, 140, 170, 0, 12, "center", "#f0f000", 1);
+			
+			num subEnd = Math.min(lengthOf submenuItems, (num)admin.scrollOffset + NUM_VISIBLE_ITEMS);
+			for (num i = (num)admin.scrollOffset; i < subEnd; i++) {
+				num di = i - (num)admin.scrollOffset;
+				if (i == (num)admin.currentOption) {
+					GAME.OVERLAY.drawRect(20, 180 + (30 * di), 240, 30, 0, "#999", 1);
+				}
+				GAME.OVERLAY.drawText(submenuItems[i], 25, 197.5 + (30 * di), 0, 12, "left", "#fff", 1);
+			}
+		}
+	}
+}
+
+action handleAdminKeyPress(str key) {
+	if (key == ADMIN_OPEN_KEY) {
+		GAME.NETWORK.send('admin-openRequest', {});
+	}
+	if ((bool)admin.isOpen) {
+		if (key == ADMIN_CLOSE_KEY) {
+			admin.isOpen = false;
+		} else if (key == ADMIN_DOWN_KEY) {
+			num menuLength = getMenuLength();
+			admin.currentOption = ((num)admin.currentOption + 1) % menuLength;
+			if ((num)admin.currentOption < (num)admin.scrollOffset) {
+				admin.scrollOffset = 0;
+			} else if ((num)admin.currentOption >= (num)admin.scrollOffset + NUM_VISIBLE_ITEMS) {
+				admin.scrollOffset = (num)admin.currentOption - NUM_VISIBLE_ITEMS + 1;
+			}
+		} else if (key == ADMIN_UP_KEY) {
+			num menuLength = getMenuLength();
+			admin.currentOption = ((num)admin.currentOption - 1 + menuLength) % menuLength;
+			if ((num)admin.currentOption >= (num)admin.scrollOffset + NUM_VISIBLE_ITEMS) {
+				admin.scrollOffset = Math.max(0, menuLength - NUM_VISIBLE_ITEMS);
+			} else if ((num)admin.currentOption < (num)admin.scrollOffset) {
+				admin.scrollOffset = admin.currentOption;
+			}
+		} else if (key == ADMIN_ENTER_KEY) {
+			if (!admin.selectedOption) {
+				admin.selectedOption = admin.options[(num)admin.currentOption];
+				admin.currentOption = 0;
+				admin.scrollOffset = 0;
+			} else {
+				obj data = {};
+				if ((str)admin.selectedOption == 'go_to') {
+					data.target = ADMIN_POI[(num)admin.currentOption].position;
+				} else {
+					data.target = GAME.PLAYERS.list()[(num)admin.currentOption].id;
+				}
+				GAME.NETWORK.send('admin-' + (str)admin.selectedOption, data);
+			}
+		} else if (key == ADMIN_BACK_KEY) {
+			if ((bool)admin.selectedOption) {
+				admin.selectedOption = false;
+				admin.currentOption = 0;
+				admin.scrollOffset = 0;
+			}
+		}
+	}
+}
+
+action handleAdminNetworkMessage(str id) {
+	if (id == 'admin-open') {
+		openAdmin();
+	}
+}
+
+# Runs when the game starts
+public action start() {
+
+}
+
+# Runs every game tick
+public action update(num delta) {
+
+}
+
+# Add rendering logic in here
+public action render(num delta) {
+	renderAdmin();
+}
+
+# Player spawns in
+public action onPlayerSpawn(str id) {
+
+}
+
+# Player died
+public action onPlayerDeath(str id, str killerID) {
+
+}
+
+# Player update
+public action onPlayerUpdate(str id, num delta, obj inputs) {
+
+}
+
+# User pressed a key
+public action onKeyPress(str key, num code) {
+	handleAdminKeyPress(key);
+}
+
+# User released a key
+public action onKeyUp(str key, num code) {
+
+}
+
+# User held a key
+public action onKeyHeld(str key, num code) {
+
+}
+
+# User pressed a button on a controller
+public action onControllerPress(str key, num code) {
+
+}
+
+# User released a button on a controller
+public action onControllerUp(str key, num code) {
+
+}
+
+# User held a button on a controller
+public action onControllerHeld(str key, num code) {
+
+}
+
+# User clicked on screen
+public action onMouseClick(num button, num x, num y) {
+
+}
+
+# User released clicked on screen
+public action onMouseUp(num button, num x, num y) {
+
+}
+
+# User scrolled on screen
+public action onMouseScroll(num dir) {
+
+}
+
+# User clicked a DIV (ID)
+public action onDIVClicked(str id) {
+
+}
+
+# Client receives network message
+public action onNetworkMessage(str id, obj data) {
+	handleAdminNetworkMessage(id);
+	if (id == 'serverLog') {
+		GAME.log(data.text);
+	}
+}
