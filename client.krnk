@@ -15,7 +15,7 @@ obj[] ADMIN_POI = obj[{
 }];
 
 obj admin = {
-	isOpen: true,
+	isOpen: false,
 	currentOption: 0,
 	selectedOption: false,
 	scrollOffset: 0,
