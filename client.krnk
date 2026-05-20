@@ -1,150 +1,284 @@
-# Client Script runs only on the client
-# KrunkScript Copyright (C) FRVR Limited
-# 
-# Add custom actions here
-str ADMIN_OPEN_KEY = '0';
-str ADMIN_DOWN_KEY = 'j';
-str ADMIN_UP_KEY = 'k';
-str ADMIN_ENTER_KEY = 'l';
-str ADMIN_BACK_KEY = 'h';
-str ADMIN_CLOSE_KEY = 'c';
-num NUM_VISIBLE_ITEMS = 8;
-obj[] ADMIN_POI = obj[{
-	name: 'Corner 1',
-	position: { x: 100, y: 0, z: 100 }
-}];
-
 obj admin = {
+	toggleKey: '0',
 	isOpen: false,
-	currentOption: 0,
-	selectedOption: false,
-	scrollOffset: 0,
+	frozenPlayers: str[],
+	invulPlayers: str[],
+	softAdminPlayers: str[],
+	poi: obj[{
+		name: 'Corner 1',
+		position: { x: 100, y: 0, z: 100 }
+	}],
 	options: str[
 		'kill',
 		'freeze',
+		'give_points',
 		'tp_to',
 		'summon',
 		'go_to',
 		'switch_team',
+		'invul',
+		'admin',
 		'kick',
 		'ban'
 	],
+	labels: str[
+		'Kill',
+		'Freeze',
+		'Give Points',
+		'TP To',
+		'Summon',
+		'Go To',
+		'Switch Team',
+		'Invul',
+		'Admin',
+		'Kick',
+		'Ban'
+	],
 };
 
-num action getMenuLength() {
-	if (!admin.selectedOption) {
-		return lengthOf admin.options;
-	} else if ((str)admin.selectedOption == 'go_to') {
-		return lengthOf ADMIN_POI;
-	}
-	return lengthOf GAME.PLAYERS.list();
-}
-
-action openAdmin() {
-	admin.isOpen = true;
-}
-
-action renderAdmin() {
-	if ((bool)admin.isOpen) {
-		GAME.OVERLAY.drawRect(15, 155, 250, 300, 0, "#000", 0.6);
-		GAME.OVERLAY.drawText(
-			UTILS.toUpper(ADMIN_UP_KEY) + ' - down / ' +
-			UTILS.toUpper(ADMIN_UP_KEY) + ' - up / ' +
-			UTILS.toUpper(ADMIN_ENTER_KEY) + ' - enter / ' +
-			UTILS.toUpper(ADMIN_BACK_KEY) + ' - back',
-			140, 445, 0, 8, "center", "#f0f000", 1);
-		if (!admin.selectedOption) {
-			num menuEnd = Math.min(lengthOf admin.options, (num)admin.scrollOffset + NUM_VISIBLE_ITEMS);
-			for (num i = (num)admin.scrollOffset; i < menuEnd; i++) {
-				num di = i - (num)admin.scrollOffset;
-				if (i == (num)admin.currentOption) {
-					GAME.OVERLAY.drawRect(20, 160 + (30 * di), 240, 30, 0, "#999", 1);
-				}
-				GAME.OVERLAY.drawText(UTILS.replaceText(admin.options[i], '_', ' '), 25, 177.5 + (30 * di), 0, 12, "left", "#fff", 1);
-			}
-		}
-		if ((bool)admin.selectedOption) {
-			str[] submenuItems = str[];
-			if ((str)admin.selectedOption == 'go_to') {
-				for (num i = 0; i < lengthOf ADMIN_POI; i++) {
-					addTo submenuItems (str)ADMIN_POI[i].name;
-				}
-			} else {
-				obj[] players = GAME.PLAYERS.list();
-				for (num i = 0; i < lengthOf players; i++) {
-					addTo submenuItems (str)players[i].username;
-				}
-			}
-			GAME.OVERLAY.drawText(admin.selectedOption, 140, 170, 0, 12, "center", "#f0f000", 1);
-			
-			num subEnd = Math.min(lengthOf submenuItems, (num)admin.scrollOffset + NUM_VISIBLE_ITEMS);
-			for (num i = (num)admin.scrollOffset; i < subEnd; i++) {
-				num di = i - (num)admin.scrollOffset;
-				if (i == (num)admin.currentOption) {
-					GAME.OVERLAY.drawRect(20, 180 + (30 * di), 240, 30, 0, "#999", 1);
-				}
-				GAME.OVERLAY.drawText(submenuItems[i], 25, 197.5 + (30 * di), 0, 12, "left", "#fff", 1);
-			}
+bool action containsStr(str[] arr, str item) {
+	for (num i = 0; i < lengthOf arr; i++) {
+		if (arr[i] == item) {
+			return true;
 		}
 	}
+	return false;
+}
+
+num action findStrIndex(str[] arr, str item) {
+	for (num i = 0; i < lengthOf arr; i++) {
+		if (arr[i] == item) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+str action getBtnStyle(bool active) {
+	if (active) {
+		return "width:80px;text-align:center;padding:4px;cursor:pointer;background:#2a7a2a;border-radius:4px;font-size:11px;color:white;";
+	}
+	return "width:80px;text-align:center;padding:4px;cursor:pointer;background:#333;border-radius:4px;font-size:11px;color:white;";
+}
+
+action updateAdminButtonColors() {
+	obj[] players = GAME.PLAYERS.list();
+	for (num pi = 0; pi < lengthOf players; pi++) {
+		obj player = players[pi];
+		str pid = (str)player.id;
+		str username = (str)player.username;
+
+		str freezeBtn = "admin-freeze-" + pid;
+		if (containsStr((str[])admin.frozenPlayers, username)) {
+			GAME.UI.updateDIV(freezeBtn, "background", "#2a7a2a");
+		} else {
+			GAME.UI.updateDIV(freezeBtn, "background", "#333");
+		}
+
+		str invulBtn = "admin-invul-" + pid;
+		if (containsStr((str[])admin.invulPlayers, username)) {
+			GAME.UI.updateDIV(invulBtn, "background", "#2a7a2a");
+		} else {
+			GAME.UI.updateDIV(invulBtn, "background", "#333");
+		}
+
+		str adminBtn = "admin-admin-" + pid;
+		if (containsStr((str[])admin.softAdminPlayers, username)) {
+			GAME.UI.updateDIV(adminBtn, "background", "#2a7a2a");
+		} else {
+			GAME.UI.updateDIV(adminBtn, "background", "#333");
+		}
+	}
+}
+
+action buildAdminPanel() {
+	GAME.INPUTS.unlockMouse();
+
+	# Backdrop
+	GAME.UI.addDIV("admin-backdrop", true, "position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:9998;", "");
+
+	# Panel (flex row for two columns)
+	GAME.UI.addDIV("admin-panel", true, "position:fixed;top:50%;left:50%;background:rgba(0,0,0,0.85);color:#fff;padding:10px;border-radius:8px;z-index:9999;font-family:monospace;display:flex;gap:16px;max-height:80vh;transform:translate(-50%,-50%);", "");
+
+	# Close button
+	GAME.UI.addDIV("admin-close", true, "position:absolute;top:4px;right:8px;cursor:pointer;font-size:18px;color:red;padding:4px;z-index:10000;", "admin-panel");
+	GAME.UI.updateDIVText("admin-close", "x");
+
+	# === LEFT COLUMN: Players ===
+	GAME.UI.addDIV("admin-left", true, "flex:1;min-width:400px;max-height:70vh;overflow-y:auto;", "admin-panel");
+
+	# Header row
+	GAME.UI.addDIV("admin-header", true, "display:flex;gap:8px;padding:4px 8px;border-bottom:1px solid #555;margin-bottom:4px;font-weight:bold;", "admin-left");
+	GAME.UI.addDIV("admin-header-name", true, "flex:1;color:wheat;", "admin-header");
+	GAME.UI.updateDIVText("admin-header-name", "Players");
+
+	# Player rows
+	obj[] players = GAME.PLAYERS.list();
+	for (num pi = 0; pi < lengthOf players; pi++) {
+		obj player = players[pi];
+		str pid = (str)player.id;
+		str rowId = "admin-row-" + pid;
+
+		str rowBg = "background:rgba(255,255,255,0.03);";
+		if (pi % 2 == 0) {
+			rowBg = "background:rgba(255,255,255,0.08);";
+		}
+		GAME.UI.addDIV(rowId, true, "display:flex;gap:8px;padding:4px 8px;border-bottom:1px solid #333;align-items:center;" + rowBg, "admin-left");
+
+		GAME.UI.addDIV(rowId + "-name", true, "flex:1 1 25%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:white;", rowId);
+		str nameColor = "white";
+		if ((num)player.team == 1) {
+			nameColor = "#6af";
+		} else if ((num)player.team == 2) {
+			nameColor = "#f66";
+		}
+		GAME.UI.updateDIVText(rowId + "-name", (str)player.username);
+		GAME.UI.updateDIV(rowId + "-name", "color", nameColor);
+
+		for (num oi2 = 0; oi2 < lengthOf admin.options; oi2++) {
+			str opt2 = (str)admin.options[oi2];
+			if (opt2 == "go_to") {
+				continue;
+			}
+			str btnId = "admin-" + opt2 + "-" + pid;
+			bool isActive = false;
+			if (opt2 == "freeze") {
+				isActive = containsStr((str[])admin.frozenPlayers, (str)player.username);
+			} else if (opt2 == "invul") {
+				isActive = containsStr((str[])admin.invulPlayers, (str)player.username);
+			} else if (opt2 == "admin") {
+				isActive = containsStr((str[])admin.softAdminPlayers, (str)player.username);
+			}
+			GAME.UI.addDIV(btnId, true, getBtnStyle(isActive), rowId);
+			GAME.UI.updateDIVText(btnId, (str)admin.labels[oi2]);
+		}
+	}
+
+	# === RIGHT COLUMN: POI + Actions ===
+	GAME.UI.addDIV("admin-right", true, "min-width:180px;max-height:70vh;display:flex;flex-direction:column;gap:8px;", "admin-panel");
+
+	# POI Header
+	GAME.UI.addDIV("admin-poi-header", true, "padding:4px 8px;border-bottom:1px solid #555;font-weight:bold;color:wheat;", "admin-right");
+	GAME.UI.updateDIVText("admin-poi-header", "Teleport");
+
+	# POI List (scrollable)
+	GAME.UI.addDIV("admin-poi-list", true, "flex:1;overflow-y:auto;", "admin-right");
+
+	for (num poiIdx = 0; poiIdx < lengthOf admin.poi; poiIdx++) {
+		obj poi = (obj)admin.poi[poiIdx];
+		str poiBtnId = "admin-poi-" + toStr poiIdx;
+		GAME.UI.addDIV(poiBtnId, true, "padding:6px 8px;margin:2px 0;cursor:pointer;background:#333;border-radius:4px;font-size:12px;color:white;text-align:center;", "admin-poi-list");
+		GAME.UI.updateDIVText(poiBtnId, (str)poi.name);
+	}
+
+	# Kick Spectators button
+	GAME.UI.addDIV("admin-kickspec", true, "padding:8px;cursor:pointer;background:#8b0000;border-radius:4px;font-size:12px;color:white;text-align:center;font-weight:bold;margin-top:auto;", "admin-right");
+	GAME.UI.updateDIVText("admin-kickspec", "Kick Spectators");
+
+}
+
+action destroyAdminPanel() {
+	GAME.UI.removeDIV("admin-backdrop");
+	GAME.UI.removeDIV("admin-panel");
+	admin.isOpen = false;
+	GAME.INPUTS.lockMouse();
 }
 
 action handleAdminKeyPress(str key) {
-	if (key == ADMIN_OPEN_KEY) {
-		GAME.NETWORK.send('admin-openRequest', {});
-	}
-	if ((bool)admin.isOpen) {
-		if (key == ADMIN_CLOSE_KEY) {
-			admin.isOpen = false;
-		} else if (key == ADMIN_DOWN_KEY) {
-			num menuLength = getMenuLength();
-			admin.currentOption = ((num)admin.currentOption + 1) % menuLength;
-			if ((num)admin.currentOption < (num)admin.scrollOffset) {
-				admin.scrollOffset = 0;
-			} else if ((num)admin.currentOption >= (num)admin.scrollOffset + NUM_VISIBLE_ITEMS) {
-				admin.scrollOffset = (num)admin.currentOption - NUM_VISIBLE_ITEMS + 1;
-			}
-		} else if (key == ADMIN_UP_KEY) {
-			num menuLength = getMenuLength();
-			admin.currentOption = ((num)admin.currentOption - 1 + menuLength) % menuLength;
-			if ((num)admin.currentOption >= (num)admin.scrollOffset + NUM_VISIBLE_ITEMS) {
-				admin.scrollOffset = Math.max(0, menuLength - NUM_VISIBLE_ITEMS);
-			} else if ((num)admin.currentOption < (num)admin.scrollOffset) {
-				admin.scrollOffset = admin.currentOption;
-			}
-		} else if (key == ADMIN_ENTER_KEY) {
-			if (!admin.selectedOption) {
-				admin.selectedOption = admin.options[(num)admin.currentOption];
-				admin.currentOption = 0;
-				admin.scrollOffset = 0;
-			} else {
-				obj data = {};
-				if ((str)admin.selectedOption == 'go_to') {
-					data.target = ADMIN_POI[(num)admin.currentOption].position;
-				} else {
-					data.target = GAME.PLAYERS.list()[(num)admin.currentOption].id;
-				}
-				GAME.NETWORK.send('admin-' + (str)admin.selectedOption, data);
-			}
-		} else if (key == ADMIN_BACK_KEY) {
-			if ((bool)admin.selectedOption) {
-				admin.selectedOption = false;
-				admin.currentOption = 0;
-				admin.scrollOffset = 0;
-			}
+	if (key == (str)admin.toggleKey) {
+		if ((bool)admin.isOpen) {
+			destroyAdminPanel();
+		} else {
+			GAME.NETWORK.send('admin-openRequest', {});
 		}
 	}
 }
 
-action handleAdminNetworkMessage(str id) {
-	if (id == 'admin-open') {
-		openAdmin();
+action handleAdminDIVClicked(str id) {
+	if (id == "admin-backdrop" || id == "admin-close") {
+		destroyAdminPanel();
+		return;
 	}
+	# POI clicks
+	if (UTILS.textContains(id, "admin-poi-")) {
+		str idxStr = UTILS.replaceText(id, "admin-poi-", "");
+		num poiIdx = toNum idxStr;
+		obj poi = (obj)admin.poi[poiIdx];
+		GAME.NETWORK.send("admin-go_to", { target: poi.position });
+		return;
+	}
+	# Kick spectators
+	if (id == "admin-kickspec") {
+		GAME.NETWORK.send("admin-kick_spectators", {});
+		return;
+	}
+	# Player action buttons
+	for (num oi = 0; oi < lengthOf admin.options; oi++) {
+		str opt = (str)admin.options[oi];
+		if (opt == "go_to") {
+			continue;
+		}
+		str prefix = "admin-" + opt + "-";
+		if (UTILS.textContains(id, prefix)) {
+			str targetId = UTILS.replaceText(id, prefix, "");
+			GAME.NETWORK.send("admin-" + opt, { target: targetId });
+			return;
+		}
+	}
+}
+
+action handleAdminNetworkMessage(str id, obj data) {
+	if (id == 'admin-open') {
+		# Reset state before rebuilding
+		admin.frozenPlayers = str[];
+		admin.invulPlayers = str[];
+		admin.softAdminPlayers = str[];
+		buildAdminPanel();
+		admin.isOpen = true;
+	} else if (id == 'admin-freeze') {
+		obj self = GAME.PLAYERS.getSelf();
+		self.defaultMovement = data.movement;
+	} else if (id == 'admin-stateChange') {
+		str username = (str)data.username;
+		str stateType = (str)data.stateType;
+		bool active = (bool)data.active;
+		if (stateType == "frozen") {
+			if (active && !containsStr((str[])admin.frozenPlayers, username)) {
+				addTo (str[])admin.frozenPlayers username;
+			} else if (!active) {
+				num idx = findStrIndex((str[])admin.frozenPlayers, username);
+				if (idx >= 0) { remove admin.frozenPlayers[idx]; }
+			}
+		} else if (stateType == "invul") {
+			if (active && !containsStr((str[])admin.invulPlayers, username)) {
+				addTo (str[])admin.invulPlayers username;
+			} else if (!active) {
+				num idx = findStrIndex((str[])admin.invulPlayers, username);
+				if (idx >= 0) { remove admin.invulPlayers[idx]; }
+			}
+		} else if (stateType == "admin") {
+			if (active && !containsStr((str[])admin.softAdminPlayers, username)) {
+				addTo (str[])admin.softAdminPlayers username;
+			} else if (!active) {
+				num idx = findStrIndex((str[])admin.softAdminPlayers, username);
+				if (idx >= 0) { remove admin.softAdminPlayers[idx]; }
+			}
+		}
+		if ((bool)admin.isOpen) {
+			updateAdminButtonColors();
+		}
+	} else if (id == 'admin-sit') {
+		GAME.changeGame("chair", {});
+	}
+}
+
+action handleAdminStart() {
+	GAME.NETWORK.send('player-enter', {});
 }
 
 # Runs when the game starts
 public action start() {
-
+	handleAdminStart();
 }
 
 # Runs every game tick
@@ -154,7 +288,7 @@ public action update(num delta) {
 
 # Add rendering logic in here
 public action render(num delta) {
-	renderAdmin();
+
 }
 
 # Player spawns in
@@ -219,13 +353,10 @@ public action onMouseScroll(num dir) {
 
 # User clicked a DIV (ID)
 public action onDIVClicked(str id) {
-
+	handleAdminDIVClicked(id);
 }
 
 # Client receives network message
 public action onNetworkMessage(str id, obj data) {
-	handleAdminNetworkMessage(id);
-	if (id == 'serverLog') {
-		GAME.log(data.text);
-	}
+	handleAdminNetworkMessage(id, data);
 }

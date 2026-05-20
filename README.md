@@ -1,75 +1,85 @@
 # Krunker Admin Panel
 
-This project provides an admin panel for managing maps and players in Krunker. It includes functionalities for both map makers and map admins.
+Admin panel for managing players in Krunker custom maps. Clickable UI with real-time state synchronization between admins.
 
 ---
 
 ## Screenshots
 
 ![Panel screenshot](media/panel.png)
-![Freeze screenshot](media/freeze.png)
-![Go To screenshot](media/goto.png)
 
 ---
 
-## Functionalities
+## Features
 
-### General Features
-- **Open Admin Panel**: Press `0` to open the admin panel.
-- **Navigate Menu**: Use `J` (down) and `K` (up) to navigate through the menu options.
-- **Select Option**: Press `L` to select an option.
-- **Go Back**: Press `H` to return to the previous menu.
-- **Close Admin Panel**: Press `C` to close the admin panel.
+### Panel UI
+- **Open/Close**: Press `0` to open the admin panel. Click outside the panel or over the close button to close it.
+- **Two-column layout**: Left column shows players with action buttons, right column shows points of interest to teleport and utility buttons.
+- **Team colors**: Player names are colored by team (blue = team 1, red = team 2).
+- **State indicators**: Freeze, Invul, and Admin buttons turn green when active on a player.
 
-### Map Admin Functionalities
-- **Kill**: Instantly eliminate a player.
-- **Freeze**: Temporarily freeze a player.
-- **Teleport To Player**: Teleport yourself to a specific player.
-- **Summon Player**: Bring a player to your location.
-- **Go To Point of Interest (POI)**: Teleport to predefined map locations.
-- **Switch Team**: Change a player's team.
-- **Kick Player**: Remove a player from the game.
-- **Ban Player**: Permanently ban a player from the game.
+### Player Actions
+| Action | Description |
+|--------|-------------|
+| **Kill** | Instantly eliminate a player |
+| **Freeze** | Toggle movement lock on a player |
+| **Give Points** | Award 500 points to a player |
+| **TP To** | Teleport yourself to a player |
+| **Summon** | Bring a player to your location |
+| **Switch Team** | Move a player to the other team (requires trigger zones) |
+| **Invul** | Toggle invulnerability on a player |
+| **Admin** | Grant/revoke soft-admin privileges to a player |
+| **Kick** | Remove a player from the game |
+| **Ban** | Permanently ban a player |
 
-### Map Maker Functionalities
-- **Define Points of Interest (POI)**: Add predefined locations on the map for quick teleportation.
-- **Customize Admin Options**: Modify the available admin options in the `client.krnk` file.
-- **Player Management**: Use the admin panel to manage players during map testing.
+### Utility Actions (Right Column)
+- **Teleport to POI**: Click any Point of Interest to teleport there.
+- **Kick Spectators**: Kicks the players that haven't spawned yet.
 
 ---
 
-## How to Use
+## Setup
 
 ### As a Map Maker
-1. Open the `client` side.
-2. Add or modify Points of Interest (POI) in the `ADMIN_POI` object. Example:
+1. If you dont have any code in your scripts, copy the contents of `client.krnk` and `server.krnk` into your map's respective script files and skip to step 3.
+2. If you already have code:
+- On client: copy the lines from 1 to 277. Then add the handlers: `handleAdminStart()` inside the `start` action, `handleAdminKeyPress(key)` inside the `onKeyPress` action, `handleAdminDIVClicked(id)` inside the `onDIVClicked` action, and `handleAdminNetworkMessage(id, data, playerID)` inside the `onNetworkMessage` action.
+- On server: copy the lines from 1 to 183. Then add the handlers: `handleAdminPlayerSpawn(id)` on the `onPlayerSpawn` action, `handleAdminPlayerDamage(id)` on the `onPlayerDamage` action, `handleAdminCustomTrigger(playerID, customParam, value)` on the `onCustomTrigger` action, and `handleAdminNetworkMessage(id, data, playerID)` on the `onNetworkMessage` action.
+3. Edit `admin.poi` in `client.krnk` to define teleport locations:
    ```krnk
-   obj[] ADMIN_POI = obj[{
+   poi: obj[{
        name: 'Spawn Point',
        position: { x: 0, y: 0, z: 0 }
    }, {
        name: 'Sniper Tower',
        position: { x: 100, y: 50, z: 100 }
-   }];
+   }],
    ```
-   You can also customize the keybindings with the 'ADMIN_OPEN', 'ADMIN_UP', 'ADMIN_DOWN', 'ADMIN_SELECT', 'ADMIN_BACK', and 'ADMIN_CLOSE' keys, and available admin options in the `admin.options` array.
-3. Test the map by running the game and using the admin panel to navigate and manage players.
+4. Edit `admin.players` in `server.krnk` to set hardcoded admin usernames.
+5. For **Switch Team** to work, place two triggers somewhere in your map and copy their coordinates to `admin.changeTeamLocations` positions. Those triggers should have `onEntryObject` event, swap-team action, and `recoverPosition` custom param.
+![Trigger screenshot](media/trigger.png)
 
-A working map.json is on the repository, so you can test the functionalityes and check the change-team zones.
+A working `map.json` is included in the repository for testing.
 
 ### As a Map Admin
-1. Start the game and press `0` to open the admin panel.
-2. Use the navigation keys (`J`, `K`, `L`, `H`, `C`) to manage players and interact with the map.
-3. Select options like `Kill`, `Freeze`, `Kick`, or `Ban` to manage players.
-4. Use the `Go To` option to teleport to predefined Points of Interest (POI).
+1. Press `0` to open the panel.
+2. Click buttons next to player names to perform actions.
+3. Green-highlighted buttons (Freeze/Invul/Admin) indicate active states.
+4. Use the right column to teleport to POIs.
 
 ---
 
-## Notes
-- Ensure the `client` side is properly configured before starting the game.
-- The admin panel is designed to be intuitive and responsive, with support for cycling through menu options when the list exceeds the visible area.
-- For any issues or feature requests, contact the development team.
+## Configuration
 
----
+All configuration lives inside the `admin` object in each file:
 
-Enjoy managing your Krunker players with ease!
+| Property (server) | Description |
+|---|---|
+| `admin.players` | Hardcoded admin usernames |
+| `admin.changeTeamLocations` | Trigger positions for team switch |
+
+| Property (client) | Description |
+|---|---|
+| `admin.toggleKey` | Key to open/close panel (default: `'0'`) |
+| `admin.poi` | Array of teleport locations |
+| `admin.options` / `admin.labels` | Action IDs and their display labels |
